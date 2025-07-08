@@ -11,9 +11,9 @@ router.get('/stats', adminAuth, async (req, res) => {
     const userStatsQuery = `
       SELECT 
         COALESCE(COUNT(*), 0) as total_usuarios,
-        COALESCE(SUM(CASE WHEN status_detalhado = 'ativo' THEN 1 ELSE 0 END), 0) as usuarios_ativos,
-        COALESCE(SUM(CASE WHEN status_detalhado = 'suspenso' THEN 1 ELSE 0 END), 0) as usuarios_suspensos,
-        COALESCE(SUM(CASE WHEN status_detalhado = 'expirado' THEN 1 ELSE 0 END), 0) as usuarios_expirados,
+        COALESCE(SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END), 0) as usuarios_ativos,
+        COALESCE(SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END), 0) as usuarios_suspensos,
+        COALESCE(SUM(CASE WHEN data_expiracao IS NOT NULL AND data_expiracao < CURDATE() THEN 1 ELSE 0 END), 0) as usuarios_expirados,
         COALESCE(SUM(CASE WHEN data_cadastro >= CURDATE() - INTERVAL 30 DAY THEN 1 ELSE 0 END), 0) as novos_usuarios_mes,
         COALESCE(SUM(CASE WHEN data_cadastro >= CURDATE() - INTERVAL 7 DAY THEN 1 ELSE 0 END), 0) as novos_usuarios_semana,
         COALESCE(SUM(CASE WHEN ultimo_acesso_data >= CURDATE() - INTERVAL 7 DAY THEN 1 ELSE 0 END), 0) as usuarios_ativos_semana
@@ -43,7 +43,7 @@ router.get('/stats', adminAuth, async (req, res) => {
         COALESCE(AVG(bitrate), 0) as media_bitrate,
         COALESCE(MAX(bitrate_maximo), 0) as maior_bitrate_maximo
       FROM revendas 
-      WHERE status_detalhado = 'ativo'
+      WHERE status = 1
     `;
 
     // Estatísticas de plataformas
@@ -57,36 +57,6 @@ router.get('/stats', adminAuth, async (req, res) => {
       LEFT JOIN user_platforms up ON p.codigo = up.platform_id
       GROUP BY p.codigo, p.nome, p.codigo_plataforma
       ORDER BY usuarios_configurados DESC
-    `;
-
-    // Usuários mais ativos (por transmissões)
-    const activeUsersQuery = `
-      SELECT 
-        COALESCE(r.nome, 'N/A') as nome, 
-        COALESCE(r.email, 'N/A') as email, 
-        COALESCE(r.id, 'N/A') as id,
-        COALESCE(COUNT(t.codigo), 0) as total_transmissoes,
-        MAX(t.data_inicio) as ultima_transmissao,
-        COALESCE(SUM(t.duracao_segundos), 0) as tempo_total,
-        COALESCE(AVG(t.viewers_pico), 0) as media_viewers
-      FROM revendas r
-      LEFT JOIN transmissoes t ON r.codigo = t.codigo_stm
-      WHERE r.status_detalhado = 'ativo'
-      GROUP BY r.codigo, r.nome, r.email, r.id
-      HAVING total_transmissoes > 0
-      ORDER BY total_transmissoes DESC
-      LIMIT 10
-    `;
-
-    // Crescimento mensal de usuários
-    const growthQuery = `
-      SELECT 
-        COALESCE(DATE_FORMAT(data_cadastro, '%Y-%m'), 'N/A') as mes,
-        COALESCE(COUNT(*), 0) as novos_usuarios
-      FROM revendas
-      WHERE data_cadastro >= CURDATE() - INTERVAL 12 MONTH
-      GROUP BY DATE_FORMAT(data_cadastro, '%Y-%m')
-      ORDER BY mes ASC
     `;
 
     // Transmissões por dia (últimos 30 dias)
@@ -108,16 +78,12 @@ router.get('/stats', adminAuth, async (req, res) => {
       transmissionStats,
       resourceStats,
       platformStats,
-      activeUsers,
-      growth,
       dailyTransmissions
     ] = await Promise.all([
       query(userStatsQuery),
       query(transmissionStatsQuery),
       query(resourceStatsQuery),
       query(platformStatsQuery),
-      query(activeUsersQuery),
-      query(growthQuery),
       query(dailyTransmissionsQuery)
     ]);
 
@@ -127,12 +93,9 @@ router.get('/stats', adminAuth, async (req, res) => {
       transmissoes: transmissionStats[0] || {},
       recursos: resourceStats[0] || {},
       plataformas: platformStats || [],
-      usuarios_ativos: activeUsers || [],
-      crescimento_mensal: growth || [],
       transmissoes_diarias: dailyTransmissions || [],
       resumo: {
-        taxa_crescimento_usuarios: growth.length > 1 && growth[growth.length - 2].novos_usuarios > 0 ? 
-          (((growth[growth.length - 1].novos_usuarios || 0) - (growth[growth.length - 2].novos_usuarios || 0)) / (growth[growth.length - 2].novos_usuarios || 1) * 100).toFixed(1) : 0,
+        taxa_crescimento_usuarios: 0,
         utilizacao_espaco: (resourceStats[0]?.espaco_total_alocado || 0) > 0 ? 
           (((resourceStats[0]?.espaco_total_usado || 0) / (resourceStats[0]?.espaco_total_alocado || 1)) * 100).toFixed(1) : 0,
         tempo_medio_transmissao: (transmissionStats[0]?.total_transmissoes || 0) > 0 ?

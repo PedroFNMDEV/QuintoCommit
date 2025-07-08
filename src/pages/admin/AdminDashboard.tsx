@@ -40,19 +40,6 @@ interface DashboardStats {
     usuarios_configurados: number;
     usuarios_ativos: number;
   }>;
-  usuarios_ativos: Array<{
-    nome: string;
-    email: string;
-    id: string;
-    total_transmissoes: number;
-    ultima_transmissao: string;
-    tempo_total: number;
-    media_viewers: number;
-  }>;
-  crescimento_mensal: Array<{
-    mes: string;
-    novos_usuarios: number;
-  }>;
   resumo: {
     taxa_crescimento_usuarios: number;
     utilizacao_espaco: number;
@@ -130,12 +117,6 @@ const AdminDashboard: React.FC = () => {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
   };
 
   if (loading) {
@@ -302,36 +283,44 @@ const AdminDashboard: React.FC = () => {
 
         {/* Charts and Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Crescimento de Usuários */}
+          {/* Recursos do Sistema */}
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Crescimento de Usuários</h3>
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Recursos do Sistema</h3>
+              <Server className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="space-y-3">
-              {stats.crescimento_mensal.slice(-6).map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{item.mes || 'N/A'}</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-20 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full"
-                        style={{ 
-                          width: `${Math.min(((item.novos_usuarios || 0) / Math.max(...stats.crescimento_mensal.map(m => m.novos_usuarios || 0), 1)) * 100, 100)}%` 
-                        }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{item.novos_usuarios || 0}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Espaço Total Alocado</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {formatBytes((stats.recursos.espaco_total_alocado || 0) * 1024 * 1024 * 1024)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Bitrate Médio</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {Math.round(stats.recursos.media_bitrate || 0)} kbps
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Espectadores Ilimitados</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {stats.recursos.usuarios_espectadores_ilimitados || 0} usuários
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Maior Bitrate Máximo</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {stats.recursos.maior_bitrate_maximo || 0} kbps
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Plataformas Mais Usadas */}
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Plataformas Mais Usadas</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Plataformas Configuradas</h3>
               <Globe className="h-5 w-5 text-blue-600" />
             </div>
             <div className="space-y-3">
@@ -355,72 +344,10 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Usuários Mais Ativos */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Usuários Mais Ativos</h3>
-              <button
-                onClick={() => navigate('/admin/users')}
-                className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-              >
-                Ver todos →
-              </button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Transmissões
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Média de Viewers
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tempo Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Última Transmissão
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stats.usuarios_ativos.slice(0, 5).map((usuario, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{usuario.nome || 'N/A'}</div>
-                        <div className="text-sm text-gray-500">{usuario.email || 'N/A'}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {usuario.total_transmissoes || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {Math.round(usuario.media_viewers || 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDuration(usuario.tempo_total || 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {usuario.ultima_transmissao ? new Date(usuario.ultima_transmissao).toLocaleDateString() : 'Nunca'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <button
-            onClick={() => navigate('/admin/users/new')}
+            onClick={() => navigate('/admin/users')}
             className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
           >
             <div className="flex items-center">
@@ -428,8 +355,8 @@ const AdminDashboard: React.FC = () => {
                 <UserPlus className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <h4 className="text-lg font-medium text-gray-900">Criar Usuário</h4>
-                <p className="text-sm text-gray-500">Adicionar novo usuário ao sistema</p>
+                <h4 className="text-lg font-medium text-gray-900">Gerenciar Usuários</h4>
+                <p className="text-sm text-gray-500">Criar, editar e gerenciar usuários</p>
               </div>
             </div>
           </button>

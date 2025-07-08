@@ -25,8 +25,13 @@ router.get('/', adminAuth, async (req, res) => {
     }
 
     if (status) {
-      whereClause += ' AND status_detalhado = ?';
-      params.push(status);
+      if (status === 'ativo') {
+        whereClause += ' AND status = 1 AND (data_expiracao IS NULL OR data_expiracao > CURDATE())';
+      } else if (status === 'suspenso') {
+        whereClause += ' AND status = 0';
+      } else if (status === 'expirado') {
+        whereClause += ' AND data_expiracao IS NOT NULL AND data_expiracao < CURDATE()';
+      }
     }
 
     // Query principal
@@ -34,7 +39,14 @@ router.get('/', adminAuth, async (req, res) => {
       SELECT 
         codigo, id, nome, email, telefone, streamings, espectadores,
         espectadores_ilimitado, bitrate, bitrate_maximo, espaco, espaco_usado_mb,
-        status, status_detalhado, data_cadastro, data_expiracao, ultimo_acesso_data, ultimo_acesso_ip,
+        status, 
+        CASE 
+          WHEN status = 1 AND (data_expiracao IS NULL OR data_expiracao > CURDATE()) THEN 'ativo'
+          WHEN status = 0 THEN 'suspenso'
+          WHEN data_expiracao IS NOT NULL AND data_expiracao < CURDATE() THEN 'expirado'
+          ELSE 'ativo'
+        END as status_detalhado,
+        data_cadastro, data_expiracao, ultimo_acesso_data, ultimo_acesso_ip,
         total_transmissoes, ultima_transmissao, observacoes_admin,
         (SELECT COUNT(*) FROM transmissoes WHERE codigo_stm = revendas.codigo) as transmissoes_realizadas,
         (SELECT COUNT(*) FROM playlists WHERE codigo_stm = revendas.codigo) as total_playlists,
@@ -60,8 +72,8 @@ router.get('/', adminAuth, async (req, res) => {
     const statsQuery = `
       SELECT 
         COUNT(*) as total_usuarios,
-        SUM(CASE WHEN status_detalhado = 'ativo' THEN 1 ELSE 0 END) as usuarios_ativos,
-        SUM(CASE WHEN status_detalhado = 'suspenso' THEN 1 ELSE 0 END) as usuarios_suspensos,
+        SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as usuarios_ativos,
+        SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) as usuarios_suspensos,
         SUM(CASE WHEN data_expiracao IS NOT NULL AND data_expiracao < CURDATE() THEN 1 ELSE 0 END) as usuarios_expirados,
         SUM(COALESCE(espaco_usado_mb, 0)) as espaco_total_usado,
         AVG(espectadores) as media_espectadores
@@ -395,8 +407,8 @@ router.patch('/:id/status', adminAuth, requireLevel('admin'), async (req, res) =
 
     // Atualizar status
     await query(
-      'UPDATE revendas SET status_detalhado = ?, observacoes_admin = CONCAT(COALESCE(observacoes_admin, ""), "\n", NOW(), " - Status alterado para ", ?, " por ", ?, COALESCE(CONCAT(" - Motivo: ", ?), "")) WHERE codigo = ?',
-      [status_detalhado, status_detalhado, req.admin.nome, motivo, userId]
+      'UPDATE revendas SET status = ?, observacoes_admin = CONCAT(COALESCE(observacoes_admin, ""), "\n", NOW(), " - Status alterado para ", ?, " por ", ?, COALESCE(CONCAT(" - Motivo: ", ?), "")) WHERE codigo = ?',
+      [status_detalhado === 'ativo' ? 1 : 0, status_detalhado, req.admin.nome, motivo, userId]
     );
 
     // Log da ação
@@ -504,7 +516,7 @@ router.delete('/:id', adminAuth, requireLevel('super_admin'), async (req, res) =
 
     // Marcar como cancelado ao invés de excluir
     await query(
-      'UPDATE revendas SET status_detalhado = "cancelado", observacoes_admin = CONCAT(COALESCE(observacoes_admin, ""), "\n", NOW(), " - Conta cancelada por ", ?) WHERE codigo = ?',
+      'UPDATE revendas SET status = 0, observacoes_admin = CONCAT(COALESCE(observacoes_admin, ""), "\n", NOW(), " - Conta cancelada por ", ?) WHERE codigo = ?',
       [req.admin.nome, userId]
     );
 

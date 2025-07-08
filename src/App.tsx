@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminSystem from './pages/admin/AdminSystem';
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -54,6 +55,7 @@ function App() {
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/system" element={<AdminSystem />} />
             <Route path="/admin/*" element={<Navigate to="/admin/dashboard" />} />
 
             {/* Auth Routes */}

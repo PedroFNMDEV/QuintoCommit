@@ -225,6 +225,9 @@ const AdminUsers: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
+    // Garantir que status não seja undefined ou null
+    const safeStatus = status || 'ativo';
+    
     const statusConfig = {
       ativo: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
       suspenso: { color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
@@ -232,13 +235,13 @@ const AdminUsers: React.FC = () => {
       cancelado: { color: 'bg-gray-100 text-gray-800', icon: XCircle }
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.ativo;
+    const config = statusConfig[safeStatus as keyof typeof statusConfig] || statusConfig.ativo;
     const Icon = config.icon;
 
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="h-3 w-3 mr-1" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
       </span>
     );
   };
@@ -519,11 +522,11 @@ const AdminUsers: React.FC = () => {
                         <div className="space-y-1">
                           <div className="flex items-center text-sm">
                             <Activity className="h-3 w-3 text-red-500 mr-1" />
-                            <span>{user.transmissoes_realizadas} transmissões</span>
+                            <span>{user.transmissoes_realizadas || 0} transmissões</span>
                           </div>
                           <div className="flex items-center text-sm">
                             <Globe className="h-3 w-3 text-blue-500 mr-1" />
-                            <span>{user.plataformas_configuradas} plataformas</span>
+                            <span>{user.plataformas_configuradas || 0} plataformas</span>
                           </div>
                           {user.ultima_transmissao && (
                             <div className="text-xs text-gray-500">
@@ -704,7 +707,7 @@ const EditUserModal: React.FC<{
     bitrate: user.bitrate,
     bitrate_maximo: user.bitrate_maximo,
     espaco: user.espaco,
-    status_detalhado: user.status_detalhado,
+    status_detalhado: user.status_detalhado || 'ativo',
     data_expiracao: user.data_expiracao ? user.data_expiracao.split('T')[0] : '',
     observacoes_admin: user.observacoes_admin || ''
   });
